@@ -802,7 +802,7 @@ public class ResourceCommandServiceTests(ITestOutputHelper testOutputHelper)
         Assert.NotNull(result.InvalidArguments);
         var invalidArgument = Assert.Single(result.InvalidArguments, argument => argument.ValidationErrors.Count > 0);
         Assert.Equal("location", invalidArgument.Name);
-        Assert.Equal("Value must be one of the provided options.", Assert.Single(invalidArgument.ValidationErrors));
+        Assert.Equal("Value must be one of: westus.", Assert.Single(invalidArgument.ValidationErrors));
     }
 
     [Fact]

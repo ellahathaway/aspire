@@ -896,6 +896,109 @@ public class ResourceCommandTests(ITestOutputHelper outputHelper)
     }
 
     [Fact]
+    public async Task ResourceCommand_RejectsInvalidDependentChoiceCommandOption()
+    {
+        // Regression test for https://github.com/microsoft/aspire/issues/16907
+        // A dependent choice has no preloaded Options in the snapshot (they load dynamically
+        // based on a prior input). The hosting side loads options during execution, validates,
+        // and returns a failure with the allowed values listed.
+        using var workspace = TemporaryWorkspace.Create(outputHelper);
+        var interactionService = new TestInteractionService();
+
+        var backchannel = new TestAppHostAuxiliaryBackchannel
+        {
+            // Simulate the hosting side loading dynamic options during execution
+            // and rejecting the invalid value.
+            ExecuteResourceCommandResult = new ExecuteResourceCommandResponse
+            {
+                Success = false,
+                Message = "Command argument validation failed.",
+                ValidationErrors =
+                [
+                    new ResourceCommandArgumentValidationError
+                    {
+                        ArgumentName = "location",
+                        ErrorMessage = "Value must be one of: westus, eastus."
+                    }
+                ]
+            },
+            ResourceSnapshots =
+            [
+                CreateResourceSnapshot(
+                    "my-resource",
+                    CreateCommand(
+                        "deploy",
+                        CreateArgument(
+                            "subscription",
+                            inputType: "Choice",
+                            options: new Dictionary<string, string?>
+                            {
+                                ["sub-a"] = "Subscription A",
+                                ["sub-b"] = "Subscription B"
+                            }),
+                        CreateArgument(
+                            "location",
+                            inputType: "Choice",
+                            // Dependent choice: Options are null in the snapshot because
+                            // they are loaded dynamically based on the "subscription" value.
+                            options: null)))
+            ]
+        };
+        await using var provider = CreateServiceProvider(workspace, outputHelper, backchannel, interactionService);
+
+        var command = provider.GetRequiredService<RootCommand>();
+        var result = command.Parse("""resource my-resource deploy --subscription sub-a --location invalid-location""");
+
+        var exitCode = await result.InvokeAsync().DefaultTimeout();
+
+        Assert.NotEqual(ExitCodeConstants.Success, exitCode);
+        Assert.Equal(1, backchannel.ExecuteResourceCommandCallCount);
+        var error = Assert.Single(interactionService.DisplayedErrors);
+        Assert.Contains("--location", error);
+        Assert.Contains("Value must be one of: westus, eastus.", error);
+    }
+
+    [Fact]
+    public async Task ResourceCommand_ValidDependentChoiceExecutesSuccessfully()
+    {
+        // When a dependent choice value is valid, the hosting side accepts it and
+        // the command executes normally.
+        using var workspace = TemporaryWorkspace.Create(outputHelper);
+
+        var backchannel = new TestAppHostAuxiliaryBackchannel
+        {
+            ExecuteResourceCommandResult = new ExecuteResourceCommandResponse { Success = true },
+            ResourceSnapshots =
+            [
+                CreateResourceSnapshot(
+                    "my-resource",
+                    CreateCommand(
+                        "deploy",
+                        CreateArgument(
+                            "subscription",
+                            inputType: "Choice",
+                            options: new Dictionary<string, string?>
+                            {
+                                ["sub-a"] = "Subscription A"
+                            }),
+                        CreateArgument(
+                            "location",
+                            inputType: "Choice",
+                            options: null)))
+            ]
+        };
+        await using var provider = CreateServiceProvider(workspace, outputHelper, backchannel);
+
+        var command = provider.GetRequiredService<RootCommand>();
+        var result = command.Parse("""resource my-resource deploy --subscription sub-a --location westus""");
+
+        var exitCode = await result.InvokeAsync().DefaultTimeout();
+
+        Assert.Equal(ExitCodeConstants.Success, exitCode);
+        Assert.Equal(1, backchannel.ExecuteResourceCommandCallCount);
+    }
+
+    [Fact]
     public async Task ResourceCommand_ReturnsInvalidCommandForUnknownCommandOption()
     {
         using var workspace = TemporaryWorkspace.Create(outputHelper);

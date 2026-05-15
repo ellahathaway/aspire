@@ -428,7 +428,7 @@ public class InteractionServiceTests
         Assert.False(interaction.CompletionTcs.Task.IsCompleted);
 
         Assert.Collection(input.ValidationErrors,
-            error => Assert.Equal("Value must be one of the provided options.", error));
+            error => Assert.Equal("Value must be one of: first, second.", error));
     }
 
     [Fact]

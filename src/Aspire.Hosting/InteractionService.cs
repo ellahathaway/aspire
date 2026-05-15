@@ -440,7 +440,8 @@ internal class InteractionService : IInteractionService
                                     var options = input.Options;
                                     if (options != null && !options.Any(o => o.Key == value))
                                     {
-                                        context.AddValidationError(input, "Value must be one of the provided options.");
+                                        var allowed = string.Join(", ", options.Select(o => o.Key));
+                                        context.AddValidationError(input, $"Value must be one of: {allowed}.");
                                     }
                                 }
                                 break;

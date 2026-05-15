@@ -480,7 +480,10 @@ public class ResourceCommandService
                 case InputType.Choice:
                     if (!argument.AllowCustomChoice && argument.Options is { } options && !options.Any(o => o.Key == value))
                     {
-                        context.AddValidationError(argument, "Value must be one of the provided options.");
+                        // List the valid option keys so the error is actionable — the CLI relies on
+                        // this message for dependent choices that cannot be validated locally.
+                        var allowed = string.Join(", ", options.Select(o => o.Key));
+                        context.AddValidationError(argument, $"Value must be one of: {allowed}.");
                     }
                     break;
                 case InputType.Boolean:
