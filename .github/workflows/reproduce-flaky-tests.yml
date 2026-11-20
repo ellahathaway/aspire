@@ -322,6 +322,20 @@ jobs:
 
           if [ "$FAIL" -gt 0 ]; then exit 1; fi
 
+      # Investigation only: the runner image disables Defender real-time monitoring and
+      # excludes C:\ and D:\ (actions/runner-images Configure-WindowsDefender.ps1). Turn it
+      # back on after the build so test runs see the same file scanning as a dev box.
+      - name: Enable Defender real-time scanning (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          Set-MpPreference -DisableRealtimeMonitoring $false -DisableBehaviorMonitoring $false -DisableIOAVProtection $false -DisableScriptScanning $false
+          Remove-MpPreference -ExclusionPath 'C:\', 'D:\'
+          Start-Sleep -Seconds 5
+          Get-MpComputerStatus | Select-Object AMRunningMode, RealTimeProtectionEnabled, OnAccessProtectionEnabled, IoavProtectionEnabled | Format-List
+          Write-Host "ExclusionPath: $((Get-MpPreference).ExclusionPath -join ', ')"
+
       - name: Run test iterations (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
