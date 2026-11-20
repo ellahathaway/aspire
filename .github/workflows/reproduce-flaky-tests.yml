@@ -39,7 +39,7 @@ env:
   RUNNERS_PER_OS: "5"
 
   # Number of test iterations each runner executes
-  ITERATIONS_PER_RUNNER: "5"
+  ITERATIONS_PER_RUNNER: "10"
 
 jobs:
 
